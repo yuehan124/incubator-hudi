@@ -39,9 +39,6 @@ import org.apache.hudi.utilities.UtilitiesTestBase;
 import org.apache.hudi.utilities.keygen.TimestampBasedKeyGenerator;
 import org.apache.hudi.utilities.schema.FilebasedSchemaProvider;
 import org.apache.hudi.utilities.sources.AvroDFSSource;
-import org.apache.hudi.utilities.sources.TestDataSource;
-import org.apache.log4j.LogManager;
-import org.apache.log4j.Logger;
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
@@ -53,7 +50,6 @@ import org.junit.runners.Parameterized;
 @RunWith(Parameterized.class)
 public class TestHoodieTestSuiteJob extends UtilitiesTestBase {
 
-  private static volatile Logger log = LogManager.getLogger(TestHoodieTestSuiteJob.class);
   String tableType;
   boolean useDeltaStream;
 
@@ -64,17 +60,19 @@ public class TestHoodieTestSuiteJob extends UtilitiesTestBase {
 
   @Parameterized.Parameters(name = "TableType")
   public static Collection<Object[]> data() {
-    return Arrays.asList(new Object[][]{{"COPY_ON_WRITE", false}, {"COPY_ON_WRITE", true}, {"MERGE_ON_READ", false},
-        {"MERGE_ON_READ", false}});
+    return Arrays.asList(new Object[][]{{"COPY_ON_WRITE", false}});
   }
 
   @BeforeClass
   public static void initClass() throws Exception {
     UtilitiesTestBase.initClass();
     // prepare the configs.
-    UtilitiesTestBase.Helpers.copyToDFS("hudi-bench-config/base.properties", dfs, dfsBasePath + "/base.properties");
-    UtilitiesTestBase.Helpers.copyToDFS("hudi-bench-config/source.avsc", dfs, dfsBasePath + "/source.avsc");
-    UtilitiesTestBase.Helpers.copyToDFS("hudi-bench-config/target.avsc", dfs, dfsBasePath + "/target.avsc");
+    UtilitiesTestBase.Helpers.copyToDFS(UtilitiesTestBase.Helpers.class.getClassLoader(), "hudi-bench-config/base"
+            + ".properties", dfs, dfsBasePath + "/base.properties");
+    UtilitiesTestBase.Helpers.copyToDFS(UtilitiesTestBase.Helpers.class.getClassLoader(), "hudi-bench-config/source"
+        + ".avsc", dfs, dfsBasePath + "/source.avsc");
+    UtilitiesTestBase.Helpers.copyToDFS(UtilitiesTestBase.Helpers.class.getClassLoader(), "hudi-bench-config/target"
+        + ".avsc", dfs, dfsBasePath + "/target.avsc");
 
     TypedProperties props = new TypedProperties();
     props.setProperty("hoodie.datasource.write.recordkey.field", "_row_key");
@@ -94,7 +92,8 @@ public class TestHoodieTestSuiteJob extends UtilitiesTestBase {
     props.setProperty(DataSourceWriteOptions.HIVE_ASSUME_DATE_PARTITION_OPT_KEY(), "false");
     props.setProperty(DataSourceWriteOptions.HIVE_PARTITION_FIELDS_OPT_KEY(), "datestr");
     props.setProperty(DataSourceWriteOptions.KEYGENERATOR_CLASS_OPT_KEY(), TimestampBasedKeyGenerator.class.getName());
-    UtilitiesTestBase.Helpers.savePropsToDFS(props, dfs, dfsBasePath + "/test-source.properties");
+    UtilitiesTestBase.Helpers.savePropsToDFS(props, dfs, dfsBasePath + "/test-source"
+        + ".properties");
 
     // Properties used for the delta-streamer which incrementally pulls from upstream DFS Avro source and
     // writes to downstream hudi table
@@ -118,13 +117,11 @@ public class TestHoodieTestSuiteJob extends UtilitiesTestBase {
   @Before
   public void setup() throws Exception {
     super.setup();
-    TestDataSource.initDataGen();
   }
 
   @After
   public void teardown() throws Exception {
     super.teardown();
-    TestDataSource.resetDataGen();
   }
 
   // TODO : Clean up input / result paths after each test

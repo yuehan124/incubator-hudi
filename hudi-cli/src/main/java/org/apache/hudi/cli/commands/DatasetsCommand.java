@@ -27,7 +27,6 @@ import org.apache.hudi.common.util.ConsistencyGuardConfig;
 import org.apache.hudi.exception.DatasetNotFoundException;
 
 import org.springframework.shell.core.CommandMarker;
-import org.springframework.shell.core.annotation.CliAvailabilityIndicator;
 import org.springframework.shell.core.annotation.CliCommand;
 import org.springframework.shell.core.annotation.CliOption;
 import org.springframework.stereotype.Component;
@@ -50,14 +49,14 @@ public class DatasetsCommand implements CommandMarker {
   @CliCommand(value = "connect", help = "Connect to a hoodie dataset")
   public String connect(
       @CliOption(key = {"path"}, mandatory = true, help = "Base Path of the dataset") final String path,
-      @CliOption(key = {"layoutVersion"}, mandatory = false, help = "Timeline Layout version") Integer layoutVersion,
-      @CliOption(key = {"eventuallyConsistent"}, mandatory = false, unspecifiedDefaultValue = "false",
+      @CliOption(key = {"layoutVersion"}, help = "Timeline Layout version") Integer layoutVersion,
+      @CliOption(key = {"eventuallyConsistent"}, unspecifiedDefaultValue = "false",
           help = "Enable eventual consistency") final boolean eventuallyConsistent,
-      @CliOption(key = {"initialCheckIntervalMs"}, mandatory = false, unspecifiedDefaultValue = "2000",
+      @CliOption(key = {"initialCheckIntervalMs"}, unspecifiedDefaultValue = "2000",
           help = "Initial wait time for eventual consistency") final Integer initialConsistencyIntervalMs,
-      @CliOption(key = {"maxCheckIntervalMs"}, mandatory = false, unspecifiedDefaultValue = "300000",
+      @CliOption(key = {"maxCheckIntervalMs"}, unspecifiedDefaultValue = "300000",
           help = "Max wait time for eventual consistency") final Integer maxConsistencyIntervalMs,
-      @CliOption(key = {"maxCheckIntervalMs"}, mandatory = false, unspecifiedDefaultValue = "7",
+      @CliOption(key = {"maxCheckIntervalMs"}, unspecifiedDefaultValue = "7",
           help = "Max checks for eventual consistency") final Integer maxConsistencyChecks)
       throws IOException {
     HoodieCLI
@@ -69,7 +68,7 @@ public class DatasetsCommand implements CommandMarker {
     HoodieCLI.connectTo(path, layoutVersion);
     HoodieCLI.initFS(true);
     HoodieCLI.state = HoodieCLI.CLIState.DATASET;
-    return "Metadata for table " + HoodieCLI.tableMetadata.getTableConfig().getTableName() + " loaded";
+    return "Metadata for table " + HoodieCLI.getTableMetaClient().getTableConfig().getTableName() + " loaded";
   }
 
   /**
@@ -116,22 +115,18 @@ public class DatasetsCommand implements CommandMarker {
     return connect(path, layoutVersion, false, 0, 0, 0);
   }
 
-  @CliAvailabilityIndicator({"desc"})
-  public boolean isDescAvailable() {
-    return HoodieCLI.tableMetadata != null;
-  }
-
   /**
    * Describes table properties.
    */
-  @CliCommand(value = "desc", help = "Describle Hoodie Table properties")
+  @CliCommand(value = "desc", help = "Describe Hoodie Table properties")
   public String descTable() {
+    HoodieTableMetaClient client = HoodieCLI.getTableMetaClient();
     TableHeader header = new TableHeader().addTableHeaderField("Property").addTableHeaderField("Value");
     List<Comparable[]> rows = new ArrayList<>();
-    rows.add(new Comparable[] {"basePath", HoodieCLI.tableMetadata.getBasePath()});
-    rows.add(new Comparable[] {"metaPath", HoodieCLI.tableMetadata.getMetaPath()});
-    rows.add(new Comparable[] {"fileSystem", HoodieCLI.tableMetadata.getFs().getScheme()});
-    HoodieCLI.tableMetadata.getTableConfig().getProps().entrySet().forEach(e -> {
+    rows.add(new Comparable[] {"basePath", client.getBasePath()});
+    rows.add(new Comparable[] {"metaPath", client.getMetaPath()});
+    rows.add(new Comparable[] {"fileSystem", client.getFs().getScheme()});
+    client.getTableConfig().getProps().entrySet().forEach(e -> {
       rows.add(new Comparable[] {e.getKey(), e.getValue()});
     });
     return HoodiePrintHelper.print(header, new HashMap<>(), "", false, -1, false, rows);

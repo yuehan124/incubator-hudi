@@ -105,7 +105,6 @@ public class HoodieBloomIndex<T extends HoodieRecordPayload> extends HoodieIndex
       recordRDD.unpersist(); // unpersist the input Record RDD
       keyFilenamePairRDD.unpersist();
     }
-
     return taggedRecordRDD;
   }
 
@@ -181,10 +180,10 @@ public class HoodieBloomIndex<T extends HoodieRecordPayload> extends HoodieIndex
           .mapToPair(t -> t).countByKey();
     } else {
       fileToComparisons = new HashMap<>();
-      partitionToFileInfo.entrySet().stream().forEach(e -> {
-        for (BloomIndexFileInfo fileInfo : e.getValue()) {
+      partitionToFileInfo.forEach((key, value) -> {
+        for (BloomIndexFileInfo fileInfo : value) {
           // each file needs to be compared against all the records coming into the partition
-          fileToComparisons.put(fileInfo.getFileId(), recordsPerPartition.get(e.getKey()));
+          fileToComparisons.put(fileInfo.getFileId(), recordsPerPartition.get(key));
         }
       });
     }
@@ -321,8 +320,9 @@ public class HoodieBloomIndex<T extends HoodieRecordPayload> extends HoodieIndex
       String recordKey = partitionRecordKeyPair._2();
       String partitionPath = partitionRecordKeyPair._1();
 
-      return indexFileFilter.getMatchingFiles(partitionPath, recordKey).stream()
-          .map(matchingFile -> new Tuple2<>(matchingFile, new HoodieKey(recordKey, partitionPath)))
+      return indexFileFilter.getMatchingFilesAndPartition(partitionPath, recordKey).stream()
+          .map(partitionFileIdPair -> new Tuple2<>(partitionFileIdPair.getRight(),
+              new HoodieKey(recordKey, partitionPath)))
           .collect(Collectors.toList());
     }).flatMap(List::iterator);
   }

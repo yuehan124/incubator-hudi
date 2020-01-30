@@ -29,7 +29,7 @@ import org.apache.hudi.common.model.CompactionOperation;
 import org.apache.hudi.common.model.FileSlice;
 import org.apache.hudi.common.model.HoodieCleaningPolicy;
 import org.apache.hudi.common.model.HoodieCommitMetadata;
-import org.apache.hudi.common.model.HoodieDataFile;
+import org.apache.hudi.common.model.HoodieBaseFile;
 import org.apache.hudi.common.model.HoodieFileGroup;
 import org.apache.hudi.common.model.HoodieFileGroupId;
 import org.apache.hudi.common.model.HoodieTableType;
@@ -329,7 +329,7 @@ public class TestIncrementalFSViewSync extends HoodieCommonTestHarness {
         Assert.assertEquals(State.COMPLETED, view.getLastInstant().get().getState());
         Assert.assertEquals(HoodieTimeline.CLEAN_ACTION, view.getLastInstant().get().getAction());
         partitions.forEach(p -> {
-          LOG.info("PARTTITION : " + p);
+          LOG.info("PARTITION : " + p);
           LOG.info("\tFileSlices :" + view.getAllFileSlices(p).collect(Collectors.toList()));
         });
 
@@ -353,7 +353,7 @@ public class TestIncrementalFSViewSync extends HoodieCommonTestHarness {
    * @param isDeltaCommit is Delta Commit ?
    * @param instantsToFiles List of files associated with each instant
    * @param rolledBackInstants List of rolled-back instants
-   * @param emptyRestoreInstant Restore instant at which dataset becomes empty
+   * @param emptyRestoreInstant Restore instant at which table becomes empty
    */
   private void testRestore(SyncableFileSystemView view, List<String> newRestoreInstants, boolean isDeltaCommit,
       Map<String, List<String>> instantsToFiles, List<String> rolledBackInstants, String emptyRestoreInstant,
@@ -502,7 +502,7 @@ public class TestIncrementalFSViewSync extends HoodieCommonTestHarness {
       view.getLatestFileSlices(p).forEach(fs -> {
         Assert.assertEquals(instantTime, fs.getBaseInstantTime());
         Assert.assertEquals(p, fs.getPartitionPath());
-        Assert.assertFalse(fs.getDataFile().isPresent());
+        Assert.assertFalse(fs.getBaseFile().isPresent());
       });
       view.getLatestMergedFileSlicesBeforeOrOn(p, instantTime).forEach(fs -> {
         Assert
@@ -625,7 +625,7 @@ public class TestIncrementalFSViewSync extends HoodieCommonTestHarness {
         });
       } else {
         partitions.forEach(p -> {
-          view.getLatestDataFiles(p).forEach(f -> {
+          view.getLatestBaseFiles(p).forEach(f -> {
             Assert.assertEquals(instant, f.getCommitTime());
           });
         });
@@ -676,10 +676,10 @@ public class TestIncrementalFSViewSync extends HoodieCommonTestHarness {
                 FileSlice slice2 = e2.getValue();
                 Assert.assertEquals(slice1.getBaseInstantTime(), slice2.getBaseInstantTime());
                 Assert.assertEquals(slice1.getFileId(), slice2.getFileId());
-                Assert.assertEquals(slice1.getDataFile().isPresent(), slice2.getDataFile().isPresent());
-                if (slice1.getDataFile().isPresent()) {
-                  HoodieDataFile df1 = slice1.getDataFile().get();
-                  HoodieDataFile df2 = slice2.getDataFile().get();
+                Assert.assertEquals(slice1.getBaseFile().isPresent(), slice2.getBaseFile().isPresent());
+                if (slice1.getBaseFile().isPresent()) {
+                  HoodieBaseFile df1 = slice1.getBaseFile().get();
+                  HoodieBaseFile df2 = slice2.getBaseFile().get();
                   Assert.assertEquals(df1.getCommitTime(), df2.getCommitTime());
                   Assert.assertEquals(df1.getFileId(), df2.getFileId());
                   Assert.assertEquals(df1.getFileName(), df2.getFileName());

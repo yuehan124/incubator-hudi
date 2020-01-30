@@ -45,7 +45,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
 /**
- * Sample program that writes & reads hoodie datasets via the Spark datasource streaming.
+ * Sample program that writes & reads hoodie tables via the Spark datasource streaming.
  */
 public class HoodieJavaStreamingApp {
 
@@ -98,7 +98,7 @@ public class HoodieJavaStreamingApp {
 
   public static void main(String[] args) throws Exception {
     HoodieJavaStreamingApp cli = new HoodieJavaStreamingApp();
-    JCommander cmd = new JCommander(cli, args);
+    JCommander cmd = new JCommander(cli, null, args);
 
     if (cli.help) {
       cmd.usage();
@@ -195,15 +195,15 @@ public class HoodieJavaStreamingApp {
         .load(tablePath + "/*/*/*/*");
     hoodieROViewDF.registerTempTable("hoodie_ro");
     spark.sql("describe hoodie_ro").show();
-    // all trips whose fare was greater than 2.
-    spark.sql("select fare, begin_lon, begin_lat, timestamp from hoodie_ro where fare > 2.0").show();
+    // all trips whose fare amount was greater than 2.
+    spark.sql("select fare.amount, begin_lon, begin_lat, timestamp from hoodie_ro where fare.amount > 2.0").show();
 
     if (tableType.equals(HoodieTableType.COPY_ON_WRITE.name())) {
       /**
        * Consume incrementally, only changes in commit 2 above. Currently only supported for COPY_ON_WRITE TABLE
        */
       Dataset<Row> hoodieIncViewDF = spark.read().format("org.apache.hudi")
-          .option(DataSourceReadOptions.VIEW_TYPE_OPT_KEY(), DataSourceReadOptions.VIEW_TYPE_INCREMENTAL_OPT_VAL())
+          .option(DataSourceReadOptions.QUERY_TYPE_OPT_KEY(), DataSourceReadOptions.QUERY_TYPE_INCREMENTAL_OPT_VAL())
           // Only changes in write 2 above
           .option(DataSourceReadOptions.BEGIN_INSTANTTIME_OPT_KEY(), commitInstantTime1)
           // For incremental view, pass in the root/base path of dataset
@@ -224,7 +224,7 @@ public class HoodieJavaStreamingApp {
 
     DataStreamWriter<Row> writer = streamingInput.writeStream().format("org.apache.hudi")
         .option("hoodie.insert.shuffle.parallelism", "2").option("hoodie.upsert.shuffle.parallelism", "2")
-        .option(DataSourceWriteOptions.STORAGE_TYPE_OPT_KEY(), tableType)
+        .option(DataSourceWriteOptions.TABLE_TYPE_OPT_KEY(), tableType)
         .option(DataSourceWriteOptions.RECORDKEY_FIELD_OPT_KEY(), "_row_key")
         .option(DataSourceWriteOptions.PARTITIONPATH_FIELD_OPT_KEY(), "partition")
         .option(DataSourceWriteOptions.PRECOMBINE_FIELD_OPT_KEY(), "timestamp")

@@ -74,19 +74,22 @@ public class HoodieTestDataGenerator {
   public static final String[] DEFAULT_PARTITION_PATHS =
       {DEFAULT_FIRST_PARTITION_PATH, DEFAULT_SECOND_PARTITION_PATH, DEFAULT_THIRD_PARTITION_PATH};
   public static final int DEFAULT_PARTITION_DEPTH = 3;
-  public static String TRIP_EXAMPLE_SCHEMA = "{\"type\": \"record\"," + "\"name\": \"triprec\"," + "\"fields\": [ "
+  public static final String TRIP_EXAMPLE_SCHEMA = "{\"type\": \"record\"," + "\"name\": \"triprec\"," + "\"fields\": [ "
       + "{\"name\": \"timestamp\",\"type\": \"double\"}," + "{\"name\": \"_row_key\", \"type\": \"string\"},"
       + "{\"name\": \"rider\", \"type\": \"string\"}," + "{\"name\": \"driver\", \"type\": \"string\"},"
       + "{\"name\": \"begin_lat\", \"type\": \"double\"}," + "{\"name\": \"begin_lon\", \"type\": \"double\"},"
       + "{\"name\": \"end_lat\", \"type\": \"double\"}," + "{\"name\": \"end_lon\", \"type\": \"double\"},"
-      + "{\"name\":\"fare\",\"type\": \"double\"},"
+      + "{\"name\": \"fare\",\"type\": {\"type\":\"record\", \"name\":\"fare\",\"fields\": ["
+      + "{\"name\": \"amount\",\"type\": \"double\"},{\"name\": \"currency\", \"type\": \"string\"}]}},"
       + "{\"name\": \"_hoodie_is_deleted\", \"type\": \"boolean\", \"default\": false} ]}";
-  public static String NULL_SCHEMA = Schema.create(Schema.Type.NULL).toString();
-  public static String TRIP_HIVE_COLUMN_TYPES = "double,string,string,string,double,double,double,double,double,boolean";
-  public static Schema avroSchema = new Schema.Parser().parse(TRIP_EXAMPLE_SCHEMA);
-  public static Schema avroSchemaWithMetadataFields = HoodieAvroUtils.addMetadataFields(avroSchema);
+  public static final String NULL_SCHEMA = Schema.create(Schema.Type.NULL).toString();
+  public static final String TRIP_HIVE_COLUMN_TYPES = "double,string,string,string,double,double,double,double,"
+                                                  + "struct<amount:double,currency:string>,boolean";
+  public static final Schema AVRO_SCHEMA = new Schema.Parser().parse(TRIP_EXAMPLE_SCHEMA);
+  public static final Schema AVRO_SCHEMA_WITH_METADATA_FIELDS =
+      HoodieAvroUtils.addMetadataFields(AVRO_SCHEMA);
 
-  private static Random rand = new Random(46474747);
+  private static final Random RAND = new Random(46474747);
 
   private final Map<Integer, KeyPartition> existingKeys;
   private final String[] partitionPaths;
@@ -143,16 +146,21 @@ public class HoodieTestDataGenerator {
 
   public static GenericRecord generateGenericRecord(String rowKey, String riderName, String driverName,
                                                     double timestamp, boolean isDeleteRecord) {
-    GenericRecord rec = new GenericData.Record(avroSchema);
+    GenericRecord rec = new GenericData.Record(AVRO_SCHEMA);
     rec.put("_row_key", rowKey);
     rec.put("timestamp", timestamp);
     rec.put("rider", riderName);
     rec.put("driver", driverName);
-    rec.put("begin_lat", rand.nextDouble());
-    rec.put("begin_lon", rand.nextDouble());
-    rec.put("end_lat", rand.nextDouble());
-    rec.put("end_lon", rand.nextDouble());
-    rec.put("fare", rand.nextDouble() * 100);
+    rec.put("begin_lat", RAND.nextDouble());
+    rec.put("begin_lon", RAND.nextDouble());
+    rec.put("end_lat", RAND.nextDouble());
+    rec.put("end_lon", RAND.nextDouble());
+
+    GenericRecord fareRecord = new GenericData.Record(AVRO_SCHEMA.getField("fare").schema());
+    fareRecord.put("amount", RAND.nextDouble() * 100);
+    fareRecord.put("currency", "USD");
+    rec.put("fare", fareRecord);
+
     if (isDeleteRecord) {
       rec.put("_hoodie_is_deleted", true);
     } else {
@@ -241,7 +249,7 @@ public class HoodieTestDataGenerator {
     int currSize = getNumExistingKeys();
 
     return IntStream.range(0, n).boxed().map(i -> {
-      String partitionPath = partitionPaths[rand.nextInt(partitionPaths.length)];
+      String partitionPath = partitionPaths[RAND.nextInt(partitionPaths.length)];
       HoodieKey key = new HoodieKey(UUID.randomUUID().toString(), partitionPath);
       KeyPartition kp = new KeyPartition();
       kp.key = key;
@@ -270,7 +278,7 @@ public class HoodieTestDataGenerator {
     List<HoodieRecord> inserts = new ArrayList<>();
     int currSize = getNumExistingKeys();
     for (int i = 0; i < limit; i++) {
-      String partitionPath = partitionPaths[rand.nextInt(partitionPaths.length)];
+      String partitionPath = partitionPaths[RAND.nextInt(partitionPaths.length)];
       HoodieKey key = new HoodieKey(UUID.randomUUID().toString(), partitionPath);
       HoodieRecord record = new HoodieRecord(key, generateAvroPayload(key, commitTime));
       inserts.add(record);
@@ -360,7 +368,7 @@ public class HoodieTestDataGenerator {
   public List<HoodieRecord> generateUpdates(String commitTime, Integer n) throws IOException {
     List<HoodieRecord> updates = new ArrayList<>();
     for (int i = 0; i < n; i++) {
-      KeyPartition kp = existingKeys.get(rand.nextInt(numExistingKeys - 1));
+      KeyPartition kp = existingKeys.get(RAND.nextInt(numExistingKeys - 1));
       HoodieRecord record = generateUpdateRecord(kp.key, commitTime);
       updates.add(record);
     }
@@ -403,7 +411,7 @@ public class HoodieTestDataGenerator {
     }
 
     return IntStream.range(0, n).boxed().map(i -> {
-      int index = numExistingKeys == 1 ? 0 : rand.nextInt(numExistingKeys - 1);
+      int index = numExistingKeys == 1 ? 0 : RAND.nextInt(numExistingKeys - 1);
       KeyPartition kp = existingKeys.get(index);
       // Find the available keyPartition starting from randomly chosen one.
       while (used.contains(kp)) {
@@ -433,7 +441,7 @@ public class HoodieTestDataGenerator {
     }
 
     return IntStream.range(0, n).boxed().map(i -> {
-      int index = numExistingKeys == 1 ? 0 : rand.nextInt(numExistingKeys - 1);
+      int index = numExistingKeys == 1 ? 0 : RAND.nextInt(numExistingKeys - 1);
       KeyPartition kp = existingKeys.get(index);
       // Find the available keyPartition starting from randomly chosen one.
       while (used.contains(kp)) {
@@ -462,7 +470,7 @@ public class HoodieTestDataGenerator {
     }
 
     return IntStream.range(0, n).boxed().map(i -> {
-      int index = numExistingKeys == 1 ? 0 : rand.nextInt(numExistingKeys - 1);
+      int index = numExistingKeys == 1 ? 0 : RAND.nextInt(numExistingKeys - 1);
       KeyPartition kp = existingKeys.get(index);
       // Find the available keyPartition starting from randomly chosen one.
       while (used.contains(kp)) {

@@ -19,8 +19,8 @@
 package org.apache.hudi.utilities.deltastreamer;
 
 import org.apache.hudi.HoodieWriteClient;
-import org.apache.hudi.OverwriteWithLatestAvroPayload;
 import org.apache.hudi.common.model.HoodieTableType;
+import org.apache.hudi.common.model.OverwriteWithLatestAvroPayload;
 import org.apache.hudi.common.table.HoodieTableMetaClient;
 import org.apache.hudi.common.table.HoodieTimeline;
 import org.apache.hudi.common.table.timeline.HoodieInstant;
@@ -69,8 +69,8 @@ import java.util.stream.IntStream;
 
 /**
  * An Utility which can incrementally take the output from {@link HiveIncrementalPuller} and apply it to the target
- * dataset. Does not maintain any state, queries at runtime to see how far behind the target dataset is from the source
- * dataset. This can be overriden to force sync from a timestamp.
+ * table. Does not maintain any state, queries at runtime to see how far behind the target table is from the source
+ * table. This can be overriden to force sync from a timestamp.
  *
  * In continuous mode, DeltaStreamer runs in loop-mode going through the below operations (a) pull-from-source (b)
  * write-to-sink (c) Schedule Compactions if needed (d) Conditionally Sync to Hive each cycle. For MOR table with
@@ -151,18 +151,16 @@ public class HoodieDeltaStreamer implements Serializable {
   public static class Config implements Serializable {
 
     @Parameter(names = {"--target-base-path"},
-        description = "base path for the target hoodie dataset. "
-            + "(Will be created if did not exist first time around. If exists, expected to be a hoodie dataset)",
+        description = "base path for the target hoodie table. "
+            + "(Will be created if did not exist first time around. If exists, expected to be a hoodie table)",
         required = true)
     public String targetBasePath;
 
-    // TODO: How to obtain hive configs to register?
     @Parameter(names = {"--target-table"}, description = "name of the target table in Hive", required = true)
     public String targetTableName;
 
-    @Parameter(names = {"--storage-type"}, description = "Type of Storage. COPY_ON_WRITE (or) MERGE_ON_READ",
-        required = true)
-    public String storageType;
+    @Parameter(names = {"--table-type"}, description = "Type of table. COPY_ON_WRITE (or) MERGE_ON_READ", required = true)
+    public String tableType;
 
     @Parameter(names = {"--props"}, description = "path to properties file on localfs or dfs, with configurations for "
         + "hoodie client, schema provider, key generator and data source. For hoodie client props, sane defaults are "
@@ -199,7 +197,7 @@ public class HoodieDeltaStreamer implements Serializable {
 
     @Parameter(names = {"--transformer-class"},
         description = "subclass of org.apache.hudi.utilities.transform.Transformer"
-            + ". Allows transforming raw source dataset to a target dataset (conforming to target schema) before "
+            + ". Allows transforming raw source Dataset to a target Dataset (conforming to target schema) before "
             + "writing. Default : Not set. E:g - org.apache.hudi.utilities.transform.SqlQueryBasedTransformer (which "
             + "allows a SQL query templated to be passed as a transformation function)")
     public String transformerClassName = null;
@@ -273,18 +271,18 @@ public class HoodieDeltaStreamer implements Serializable {
 
     public boolean isAsyncCompactionEnabled() {
       return continuousMode && !forceDisableCompaction
-          && HoodieTableType.MERGE_ON_READ.equals(HoodieTableType.valueOf(storageType));
+          && HoodieTableType.MERGE_ON_READ.equals(HoodieTableType.valueOf(tableType));
     }
 
     public boolean isInlineCompactionEnabled() {
       return !continuousMode && !forceDisableCompaction
-          && HoodieTableType.MERGE_ON_READ.equals(HoodieTableType.valueOf(storageType));
+          && HoodieTableType.MERGE_ON_READ.equals(HoodieTableType.valueOf(tableType));
     }
   }
 
   public static void main(String[] args) throws Exception {
     final Config cfg = new Config();
-    JCommander cmd = new JCommander(cfg, args);
+    JCommander cmd = new JCommander(cfg, null, args);
     if (cfg.help || args.length == 0) {
       cmd.usage();
       System.exit(1);
@@ -356,10 +354,10 @@ public class HoodieDeltaStreamer implements Serializable {
             new HoodieTableMetaClient(new Configuration(fs.getConf()), cfg.targetBasePath, false);
         tableType = meta.getTableType();
         // This will guarantee there is no surprise with table type
-        Preconditions.checkArgument(tableType.equals(HoodieTableType.valueOf(cfg.storageType)),
-            "Hoodie table is of type " + tableType + " but passed in CLI argument is " + cfg.storageType);
+        Preconditions.checkArgument(tableType.equals(HoodieTableType.valueOf(cfg.tableType)),
+            "Hoodie table is of type " + tableType + " but passed in CLI argument is " + cfg.tableType);
       } else {
-        tableType = HoodieTableType.valueOf(cfg.storageType);
+        tableType = HoodieTableType.valueOf(cfg.tableType);
       }
 
       this.props = UtilHelpers.readConfig(fs, new Path(cfg.propsFilePath), cfg.configs).getConfig();
@@ -502,7 +500,6 @@ public class HoodieDeltaStreamer implements Serializable {
     public AsyncCompactService(JavaSparkContext jssc, HoodieWriteClient client) {
       this.jssc = jssc;
       this.compactor = new Compactor(client, jssc);
-      // TODO: HUDI-157 : Only allow 1 compactor to run in parallel till Incremental View on MOR is fully implemented.
       this.maxConcurrentCompaction = 1;
     }
 

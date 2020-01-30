@@ -26,7 +26,7 @@ import org.apache.hudi.common.minicluster.HdfsTestService;
 import org.apache.hudi.common.minicluster.ZookeeperTestService;
 import org.apache.hudi.common.model.HoodieAvroPayload;
 import org.apache.hudi.common.model.HoodieCommitMetadata;
-import org.apache.hudi.common.model.HoodieDataFile;
+import org.apache.hudi.common.model.HoodieBaseFile;
 import org.apache.hudi.common.model.HoodieDeltaWriteStat;
 import org.apache.hudi.common.model.HoodieLogFile;
 import org.apache.hudi.common.model.HoodieTableType;
@@ -152,7 +152,7 @@ public class TestUtil {
     }
   }
 
-  static void createCOWDataset(String commitTime, int numberOfPartitions)
+  static void createCOWTable(String commitTime, int numberOfPartitions)
       throws IOException, InitializationError, URISyntaxException {
     Path path = new Path(hiveSyncConfig.basePath);
     FileIOUtils.deleteDirectory(new File(hiveSyncConfig.basePath));
@@ -166,7 +166,7 @@ public class TestUtil {
     createCommitFile(commitMetadata, commitTime);
   }
 
-  static void createMORDataset(String commitTime, String deltaCommitTime, int numberOfPartitions)
+  static void createMORTable(String commitTime, String deltaCommitTime, int numberOfPartitions)
       throws IOException, InitializationError, URISyntaxException, InterruptedException {
     Path path = new Path(hiveSyncConfig.basePath);
     FileIOUtils.deleteDirectory(new File(hiveSyncConfig.basePath));
@@ -179,7 +179,7 @@ public class TestUtil {
     HoodieCommitMetadata commitMetadata = createPartitions(numberOfPartitions, true, dateTime, commitTime);
     createdTablesSet.add(hiveSyncConfig.databaseName + "." + hiveSyncConfig.tableName);
     createdTablesSet
-        .add(hiveSyncConfig.databaseName + "." + hiveSyncConfig.tableName + HiveSyncTool.SUFFIX_REALTIME_TABLE);
+        .add(hiveSyncConfig.databaseName + "." + hiveSyncConfig.tableName + HiveSyncTool.SUFFIX_SNAPSHOT_TABLE);
     HoodieCommitMetadata compactionMetadata = new HoodieCommitMetadata();
     commitMetadata.getPartitionToWriteStats()
         .forEach((key, value) -> value.forEach(l -> compactionMetadata.addWriteStat(key, l)));
@@ -202,9 +202,8 @@ public class TestUtil {
       throws IOException, URISyntaxException, InterruptedException {
     HoodieCommitMetadata commitMetadata =
         createPartitions(numberOfPartitions, isParquetSchemaSimple, startFrom, commitTime);
-    createdTablesSet.add(hiveSyncConfig.databaseName + "." + hiveSyncConfig.tableName);
-    createdTablesSet
-        .add(hiveSyncConfig.databaseName + "." + hiveSyncConfig.tableName + HiveSyncTool.SUFFIX_REALTIME_TABLE);
+    createdTablesSet.add(hiveSyncConfig.databaseName + "." + hiveSyncConfig.tableName + HiveSyncTool.SUFFIX_READ_OPTIMIZED_TABLE);
+    createdTablesSet.add(hiveSyncConfig.databaseName + "." + hiveSyncConfig.tableName + HiveSyncTool.SUFFIX_SNAPSHOT_TABLE);
     HoodieCommitMetadata compactionMetadata = new HoodieCommitMetadata();
     commitMetadata.getPartitionToWriteStats()
         .forEach((key, value) -> value.forEach(l -> compactionMetadata.addWriteStat(key, l)));
@@ -220,7 +219,7 @@ public class TestUtil {
       String partitionPath = wEntry.getKey();
       for (HoodieWriteStat wStat : wEntry.getValue()) {
         Path path = new Path(wStat.getPath());
-        HoodieDataFile dataFile = new HoodieDataFile(fileSystem.getFileStatus(path));
+        HoodieBaseFile dataFile = new HoodieBaseFile(fileSystem.getFileStatus(path));
         HoodieLogFile logFile = generateLogData(path, isLogSchemaSimple);
         HoodieDeltaWriteStat writeStat = new HoodieDeltaWriteStat();
         writeStat.setFileId(dataFile.getFileId());
@@ -291,7 +290,7 @@ public class TestUtil {
   private static HoodieLogFile generateLogData(Path parquetFilePath, boolean isLogSchemaSimple)
       throws IOException, InterruptedException, URISyntaxException {
     Schema schema = (isLogSchemaSimple ? SchemaTestUtil.getSimpleSchema() : SchemaTestUtil.getEvolvedSchema());
-    HoodieDataFile dataFile = new HoodieDataFile(fileSystem.getFileStatus(parquetFilePath));
+    HoodieBaseFile dataFile = new HoodieBaseFile(fileSystem.getFileStatus(parquetFilePath));
     // Write a log file for this parquet file
     Writer logWriter = HoodieLogFormat.newWriterBuilder().onParentPath(parquetFilePath.getParent())
         .withFileExtension(HoodieLogFile.DELTA_EXTENSION).withFileId(dataFile.getFileId())

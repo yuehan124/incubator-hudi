@@ -25,13 +25,13 @@ import org.apache.hudi.common.bloom.filter.BloomFilter;
 import org.apache.hudi.common.bloom.filter.BloomFilterFactory;
 import org.apache.hudi.common.bloom.filter.BloomFilterTypeCode;
 import org.apache.hudi.common.model.HoodieCommitMetadata;
-import org.apache.hudi.common.model.HoodieDataFile;
+import org.apache.hudi.common.model.HoodieBaseFile;
 import org.apache.hudi.common.model.HoodieKey;
 import org.apache.hudi.common.model.HoodieRecord;
 import org.apache.hudi.common.model.HoodieTestUtils;
 import org.apache.hudi.common.table.HoodieTableMetaClient;
 import org.apache.hudi.common.table.HoodieTimeline;
-import org.apache.hudi.common.table.TableFileSystemView.ReadOptimizedView;
+import org.apache.hudi.common.table.TableFileSystemView.BaseFileOnlyView;
 import org.apache.hudi.common.table.timeline.HoodieInstant;
 import org.apache.hudi.common.table.view.HoodieTableFileSystemView;
 import org.apache.hudi.common.util.FSUtils;
@@ -178,7 +178,7 @@ public class HoodieClientTestUtils {
   }
 
   /**
-   * Obtain all new data written into the Hoodie dataset since the given timestamp.
+   * Obtain all new data written into the Hoodie table since the given timestamp.
    */
   public static Dataset<Row> readSince(String basePath, SQLContext sqlContext, HoodieTimeline commitTimeline,
                                        String lastCommitTime) {
@@ -195,7 +195,7 @@ public class HoodieClientTestUtils {
   }
 
   /**
-   * Reads the paths under the a hoodie dataset out as a DataFrame.
+   * Reads the paths under the a hoodie table out as a DataFrame.
    */
   public static Dataset<Row> read(JavaSparkContext jsc, String basePath, SQLContext sqlContext, FileSystem fs,
                                   String... paths) {
@@ -203,16 +203,16 @@ public class HoodieClientTestUtils {
     try {
       HoodieTableMetaClient metaClient = new HoodieTableMetaClient(fs.getConf(), basePath, true);
       for (String path : paths) {
-        ReadOptimizedView fileSystemView = new HoodieTableFileSystemView(metaClient,
+        BaseFileOnlyView fileSystemView = new HoodieTableFileSystemView(metaClient,
             metaClient.getCommitsTimeline().filterCompletedInstants(), fs.globStatus(new Path(path)));
-        List<HoodieDataFile> latestFiles = fileSystemView.getLatestDataFiles().collect(Collectors.toList());
-        for (HoodieDataFile file : latestFiles) {
+        List<HoodieBaseFile> latestFiles = fileSystemView.getLatestBaseFiles().collect(Collectors.toList());
+        for (HoodieBaseFile file : latestFiles) {
           filteredPaths.add(file.getPath());
         }
       }
       return sqlContext.read().parquet(filteredPaths.toArray(new String[filteredPaths.size()]));
     } catch (Exception e) {
-      throw new HoodieException("Error reading hoodie dataset as a dataframe", e);
+      throw new HoodieException("Error reading hoodie table as a dataframe", e);
     }
   }
 

@@ -245,8 +245,8 @@ public class HoodieBloomIndex<T extends HoodieRecordPayload> extends HoodieIndex
               hoodieTable.getMetaClient().getCommitsTimeline().filterCompletedInstants().lastInstant();
           List<Pair<String, String>> filteredFiles = new ArrayList<>();
           if (latestCommitTime.isPresent()) {
-            filteredFiles = hoodieTable.getROFileSystemView()
-                .getLatestDataFilesBeforeOrOn(partitionPath, latestCommitTime.get().getTimestamp())
+            filteredFiles = hoodieTable.getBaseFileOnlyView()
+                .getLatestBaseFilesBeforeOrOn(partitionPath, latestCommitTime.get().getTimestamp())
                 .map(f -> Pair.of(partitionPath, f.getFileId())).collect(toList());
           }
           return filteredFiles.iterator();
@@ -302,7 +302,7 @@ public class HoodieBloomIndex<T extends HoodieRecordPayload> extends HoodieIndex
 
   /**
    * For each incoming record, produce N output records, 1 each for each file against which the record's key needs to be
-   * checked. For datasets, where the keys have a definite insert order (e.g: timestamp as prefix), the number of files
+   * checked. For tables, where the keys have a definite insert order (e.g: timestamp as prefix), the number of files
    * to be compared gets cut down a lot from range pruning.
    *
    * Sub-partition to ensure the records can be looked up against files & also prune file<=>record comparisons based on

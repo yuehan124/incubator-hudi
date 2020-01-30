@@ -16,42 +16,30 @@
  * limitations under the License.
  */
 
-package org.apache.hudi.io.strategy;
+package org.apache.hudi.utilities;
 
-import org.apache.hudi.common.model.HoodieDataFile;
+import org.junit.Assert;
+import org.junit.Before;
+import org.junit.Test;
 
-import java.util.UUID;
+public class TestHiveIncrementalPuller {
 
-public class TestHoodieDataFile extends HoodieDataFile {
+  private HiveIncrementalPuller.Config config;
 
-  private final long size;
-
-  public TestHoodieDataFile(long size) {
-    super("/tmp/XYXYXYXYXYYX_11_20180918020003.parquet");
-    this.size = size;
+  @Before
+  public void setup() {
+    config = new HiveIncrementalPuller.Config();
   }
 
-  public static HoodieDataFile newDataFile(long size) {
-    return new TestHoodieDataFile(size);
+  @Test
+  public void testInitHiveIncrementalPuller() {
+
+    try {
+      new HiveIncrementalPuller(config);
+    } catch (Exception e) {
+      Assert.fail("Unexpected exception while initing HiveIncrementalPuller, msg: " + e.getMessage());
+    }
+
   }
 
-  @Override
-  public String getPath() {
-    return "/tmp/test";
-  }
-
-  @Override
-  public String getFileId() {
-    return UUID.randomUUID().toString();
-  }
-
-  @Override
-  public String getCommitTime() {
-    return "100";
-  }
-
-  @Override
-  public long getFileSize() {
-    return size;
-  }
 }

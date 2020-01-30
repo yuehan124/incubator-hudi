@@ -33,6 +33,8 @@ import org.apache.hudi.common.table.HoodieTableMetaClient;
 import org.apache.hudi.common.table.HoodieTimeline;
 import org.apache.hudi.common.table.SyncableFileSystemView;
 import org.apache.hudi.common.table.TableFileSystemView;
+import org.apache.hudi.common.table.TableFileSystemView.BaseFileOnlyView;
+import org.apache.hudi.common.table.TableFileSystemView.SliceView;
 import org.apache.hudi.common.table.timeline.HoodieActiveTimeline;
 import org.apache.hudi.common.table.timeline.HoodieInstant;
 import org.apache.hudi.common.table.view.FileSystemViewManager;
@@ -52,11 +54,11 @@ import org.apache.hudi.index.HoodieIndex;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.log4j.LogManager;
+import org.apache.log4j.Logger;
 import org.apache.spark.Partitioner;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.Serializable;
@@ -73,7 +75,7 @@ import java.util.stream.Stream;
  */
 public abstract class HoodieTable<T extends HoodieRecordPayload> implements Serializable {
 
-  private static final Logger LOG = LoggerFactory.getLogger(HoodieTable.class);
+  private static final Logger LOG = LogManager.getLogger(HoodieTable.class);
 
   protected final HoodieWriteConfig config;
   protected final HoodieTableMetaClient metaClient;
@@ -145,16 +147,16 @@ public abstract class HoodieTable<T extends HoodieRecordPayload> implements Seri
   }
 
   /**
-   * Get the read optimized view of the file system for this table.
+   * Get the base file only view of the file system for this table.
    */
-  public TableFileSystemView.ReadOptimizedView getROFileSystemView() {
+  public BaseFileOnlyView getBaseFileOnlyView() {
     return getViewManager().getFileSystemView(metaClient.getBasePath());
   }
 
   /**
-   * Get the real time view of the file system for this table.
+   * Get the full view of the file system for this table.
    */
-  public TableFileSystemView.RealtimeView getRTFileSystemView() {
+  public SliceView getSliceView() {
     return getViewManager().getFileSystemView(metaClient.getBasePath());
   }
 
@@ -324,7 +326,7 @@ public abstract class HoodieTable<T extends HoodieRecordPayload> implements Seri
       Path markerDir = new Path(metaClient.getMarkerFolderPath(instantTs));
       if (fs.exists(markerDir)) {
         // For append only case, we do not write to marker dir. Hence, the above check
-        LOG.info("Removing marker directory={}", markerDir);
+        LOG.info("Removing marker directory=" + markerDir);
         fs.delete(markerDir, true);
       }
     } catch (IOException ioe) {
@@ -363,7 +365,7 @@ public abstract class HoodieTable<T extends HoodieRecordPayload> implements Seri
       invalidDataPaths.removeAll(validDataPaths);
       if (!invalidDataPaths.isEmpty()) {
         LOG.info(
-            "Removing duplicate data files created due to spark retries before committing. Paths={}", invalidDataPaths);
+            "Removing duplicate data files created due to spark retries before committing. Paths=" + invalidDataPaths);
       }
 
       Map<String, List<Pair<String, String>>> groupByPartition = invalidDataPaths.stream()
@@ -381,7 +383,7 @@ public abstract class HoodieTable<T extends HoodieRecordPayload> implements Seri
         jsc.parallelize(new ArrayList<>(groupByPartition.values()), config.getFinalizeWriteParallelism())
             .map(partitionWithFileList -> {
               final FileSystem fileSystem = metaClient.getFs();
-              LOG.info("Deleting invalid data files={}", partitionWithFileList);
+              LOG.info("Deleting invalid data files=" + partitionWithFileList);
               if (partitionWithFileList.isEmpty()) {
                 return true;
               }
